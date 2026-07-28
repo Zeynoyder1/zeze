@@ -1,168 +1,132 @@
-07/28/2026 Update
-=================
+# 07/28/2026 Update
 
-Weekly Update – Single-Cell Surrogate & Sensitivity Analysis
-------------------------------------------------------------
+## Weekly Update – Single-Cell Surrogate & Sensitivity Analysis
 
-*   This week, I changed the analysis to focus on **one individual cell (ITL23\_\_541549258) instead of combining 12 cells**.
-    
-    *   I removed the other 11 cells.
-        
-    *   The goal is to first build a strong surrogate model for one specific cell.
-        
-    *   This cell still has enough simulation data for training and validation.
-        
-*   I improved the surrogate neural network to reduce **overfitting on the single-cell dataset**.
-    
-    *   dropout = 0.25
-        
-    *   weight\_decay = 1e-4
-        
-    *   patience = 8
-        
-    *   validation fraction = 20%
-        
-    *   These changes give the model stronger regularization and stop training earlier when validation performance stops improving.
-        
-*   I also improved the training speed.
-    
-    *   The code now uses **Apple Silicon MPS** when available.
-        
-    *   Data loading uses multiple CPU workers.
-        
-    *   This makes training faster while still using the memory-mapped dataset.
-        
+- This week, I changed the analysis to focus on **one individual cell (`ITL23__541549258`) instead of combining 12 cells**.
+  - I removed the other 11 cells.
+  - The goal is to first build a strong surrogate model for one specific cell.
+  - This cell still has enough simulation data for training and validation.
 
-sag\_amplitude Fix
-------------------
+- I improved the surrogate neural network to reduce **overfitting on the single-cell dataset**.
+  - `dropout = 0.25`
+  - `weight_decay = 1e-4`
+  - `patience = 8`
+  - `validation fraction = 20%`
+  - These changes give the model stronger regularization and stop training earlier when validation performance stops improving.
 
-*   sag\_amplitude previously had **0 valid validation samples**, so its R² could not be calculated.
-    
-*   The problem came from feature filtering and bound checks that removed too many valid sag samples.
-    
-*   I corrected the bounds and masking so valid hyperpolarizing samples are kept while unrealistic values are removed.
-    
-*   After the fix:
-    
-    *   Training samples: **297,305**
-        
-    *   Validation samples: **32,930**
-        
-    *   Validation R² = 0.9893
-        
-    *   MAE = 0.0507 mV
-        
+- I also improved the training speed.
+  - The code now uses **Apple Silicon MPS** when available.
+  - Data loading uses multiple CPU workers.
+  - This makes training faster while still using the memory-mapped dataset.
 
-Feature Cleaning and Transformations
-------------------------------------
+---
 
-*   I added more realistic physiological bounds for features with large eFEL outliers.
-    
-*   Current important upper bounds include:
-    
-    *   AP1\_width <= 3.0 ms
-        
-    *   AHP\_time\_from\_peak <= 100 ms
-        
-    *   time\_to\_first\_spike <= 300 ms
-        
-    *   decay\_time\_constant\_after\_stim <= 500 ms
-        
-*   Log transforms are used for features with strongly skewed distributions:
-    
-    *   time\_to\_first\_spike
-        
-    *   AHP\_time\_from\_peak
-        
-    *   decay\_time\_constant\_after\_stim
-        
+## `sag_amplitude` Fix
 
-Sensitivity Analysis
---------------------
+- `sag_amplitude` previously had **0 valid validation samples**, so its `R²` could not be calculated.
+- The problem came from feature filtering and bound checks that removed too many valid sag samples.
+- I corrected the bounds and masking so valid hyperpolarizing samples are kept while unrealistic values are removed.
 
-*   The sensitivity analysis measures how each biophysical parameter affects each predicted electrophysiological feature.
-    
-*   For example:
-    
+- After the fix:
+  - Training samples: **297,305**
+  - Validation samples: **32,930**
+  - Validation `R² = 0.9893`
+  - `MAE = 0.0507 mV`
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   ∂AP1_peak / ∂gbar_NaTs2_t   `
+---
 
-*   This shows how the predicted AP1\_peak changes when sodium conductance changes.
-    
-*   My first version used:
-    
+## Feature Cleaning and Transformations
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   mean(|∂feature / ∂parameter|)   `
+- I added more realistic physiological bounds for features with large eFEL outliers.
 
-*   This measured the strength of the effect but removed the **direction**.
-    
-*   I changed the analysis to use **signed gradients**.
-    
-*   For every {feature, parameter} pair, I now calculate:
-    
-    *   **Mean signed gradient**
-        
-    *   **Standard deviation of the gradient**
-        
+- Current important upper bounds include:
+  - `AP1_width <= 3.0 ms`
+  - `AHP_time_from_peak <= 100 ms`
+  - `time_to_first_spike <= 300 ms`
+  - `decay_time_constant_after_stim <= 500 ms`
+
+- Log transforms are used for features with strongly skewed distributions:
+  - `time_to_first_spike`
+  - `AHP_time_from_peak`
+  - `decay_time_constant_after_stim`
+
+---
+
+## Sensitivity Analysis
+
+- The sensitivity analysis measures how each biophysical parameter affects each predicted electrophysiological feature.
+
+- For example:
+
+```text
+∂AP1_peak / ∂gbar_NaTs2_t
+```
+
+- This shows how the predicted `AP1_peak` changes when sodium conductance changes.
+
+- My first version used:
+
+```text
+mean(|∂feature / ∂parameter|)
+```
+
+- This measured the strength of the effect but removed the **direction**.
+
+- I changed the analysis to use **signed gradients**.
+
+- For every `{feature, parameter}` pair, I now calculate:
+  - **Mean signed gradient**
+  - **Standard deviation of the gradient**
 
 ### Interpretation
 
-*   **Consistent positive or negative mean + small standard deviation**
-    
-    *   The parameter has a stable effect across samples.
-        
-*   **Mean near zero + large standard deviation**
-    
-    *   The parameter may still be important, but its effect changes direction across samples.
-        
-    *   This may suggest biological degeneracy.
-        
+- **Consistent positive or negative mean + small standard deviation**
+  - The parameter has a stable effect across samples.
 
-Sensitivity Quality Checks
---------------------------
+- **Mean near zero + large standard deviation**
+  - The parameter may still be important, but its effect changes direction across samples.
+  - This may suggest biological degeneracy.
 
-*   I added a **validation R² threshold** before sensitivity analysis.
-    
+---
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   R² >= 0.5   `
+## Sensitivity Quality Checks
 
-*   Features with R² < 0.5 are skipped.
-    
-*   This prevents us from interpreting gradients from features that the surrogate model did not learn well.
-    
-*   I also added a check for sensitivity rows that are:
-    
-    *   all zero
-        
-    *   constant
-        
-    *   all NaN
-        
-*   These rows are skipped instead of being incorrectly ranked.
-    
-*   This fixes the previous problem where an all-zero feature such as decay\_time\_constant\_after\_stim could give every parameter rank 1.
-    
+- I added a **validation `R²` threshold** before sensitivity analysis.
 
-Current Plan
-------------
+```text
+R² >= 0.5
+```
 
-*   For now, I am running the corrected sensitivity analysis on the **single cell**.
-    
-*   We are still deciding whether the final analysis should use:
-    
-    *   one integrated model, or
-        
-    *   separate subthreshold/no-spike and spiking models.
-        
+- Features with `R² < 0.5` are skipped.
+- This prevents us from interpreting gradients from features that the surrogate model did not learn well.
 
-Next Step
----------
+- I also added a check for sensitivity rows that are:
+  - all zero
+  - constant
+  - all `NaN`
 
-*   Retrain the surrogate models one by one.
-    
-*   Compare their validation performance.
-    
-*   Compare their sensitivity results.
+- These rows are skipped instead of being incorrectly ranked.
+
+- This fixes the previous problem where an all-zero feature such as `decay_time_constant_after_stim` could give every parameter rank 1.
+
+---
+
+## Current Plan
+
+- For now, I am running the corrected sensitivity analysis on the **single cell**.
+
+- We are still deciding whether the final analysis should use:
+  - one integrated model, or
+  - separate subthreshold/no-spike and spiking models.
+
+---
+
+## Next Step
+
+- Retrain the surrogate models one by one.
+- Compare their validation performance.
+- Compare their sensitivity results.
+
 # zeze
 Personal website
 # Biophysical Parameter-to-eFEL Neural Network Surrogate
